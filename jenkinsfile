@@ -38,3 +38,80 @@ pipeline {
     }
 
 }
+
+############################written by venu&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+pipeline {
+    agent any
+    tools {
+        maven 'maven3'
+    }
+    
+    environment{
+        
+        SCANNER_HOME=tool 'sonar-scanner'
+    }
+
+    stages {
+        stage('git checkou') {
+            steps {
+                git branch: 'main', url: 'https://github.com/jaiswaladi246/Multi-Tier-With-Database.git'
+            }
+        }
+        stage('compile') {
+            steps {
+                sh "mvn compile"
+            }
+        }
+        stage('test') {
+            steps {
+                echo "mvn test -DskipTests=true"
+            }
+        }
+        stage('trivy file scan') {
+            steps {
+              sh "trivy fs --format table -o fs-report.html ."
+            }
+        }
+        stage('Sonarqube analysis') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                  sh "$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Multitier -Dsonar.projectKey=Multitier -Dsonar.java.binaries=target"
+              }
+            }
+        }
+        stage('build') {
+            steps {
+                sh "mvn package -DskipTests=true"
+            }
+        }
+        stage('docker build') {
+            steps {
+                script{
+                withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                    
+                    sh "docker build -t venudevop/bankapp:latest ."
+    
+                 }
+                }
+            }
+        }
+        stage('file scan') {
+            steps {
+               sh "trivy image --format table -o fs.repot.html venudevop/bankapp:latest"
+            }
+        }
+     stage('docker push ') {
+          steps {
+               script{
+               withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                    
+                 sh "docker push venudevop/bankapp:latest "
+    
+               }
+               }
+         }
+        }
+    }
+}
+
